@@ -1,35 +1,67 @@
 (async function () {
 
-    const cvs = document.querySelector('canvas'),
-        width = cvs.width = 256,
-        height = cvs.height = 256,
-        gl = cvs.getContext('webgl2');
-
     // random with normal as opposed to uniform distribution
     // seems to give better kernels
     function randn() {
         return Math.sqrt(-2.0 * Math.log(Math.random())) * Math.cos(2.0 * Math.PI * Math.random());
     }
 
-    var ext = gl.getExtension('EXT_color_buffer_float');
-    if (!ext) {
-        throw '32-bit floating point texture not supported';
+    const Q = t => document.querySelector(t),
+        QQ = t => document.querySelectorAll(t);
+
+    const activationFunctions = await fetch('activation-functions.json').then(r => r.json()),
+        vertSrc = (await fetch('shaders/vert.glsl').then(r => r.text())).trim(),
+        fragSrc = (await fetch('shaders/frag.glsl').then(r => r.text())).trim();
+
+    const cvs = Q('canvas'),
+        width = cvs.width = 256,
+        height = cvs.height = 256,
+        gl = cvs.getContext('webgl2'),
+        program = gl.createProgram();
+
+    if (!gl.getExtension('EXT_color_buffer_float')) {
+        document.body.innerHTML = '32-bit floating point texture not supported';
+        return;
     }
 
-    const vs = gl.createShader(gl.VERTEX_SHADER);
-    gl.shaderSource(vs, (await fetch('shaders/vert.glsl').then(r => r.text())).trim());
-    gl.compileShader(vs);
+    function setShader(src, type) {
+        const s = gl.createShader(type);
+        gl.shaderSource(s, src);
+        gl.compileShader(s);
+        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+            Q('#error').innerHTML = gl.getShaderInfoLog(s);
+            gl.deleteShader(s);
+            return;
+        }
+        Q('#error').innerHTML = '';
 
-    const fs = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(fs, (await fetch('shaders/frag.glsl').then(r => r.text())).trim());
-    gl.compileShader(fs);
+        gl.getAttachedShaders(program).forEach(t => {
+            if (gl.getShaderParameter(t, gl.SHADER_TYPE) === type) {
+                gl.detachShader(program, t);
+                gl.deleteShader(t);
+            }
+        });
 
-    if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS))
-        console.warn(gl.getShaderInfoLog(fs));
+        gl.attachShader(program, s);
+    }
 
-    var program = gl.createProgram();
-    gl.attachShader(program, vs);
-    gl.attachShader(program, fs);
+    Object.keys(activationFunctions).forEach(af => {
+        Q('#sel-af').innerHTML += `<option>${af}</option>`;
+    });
+
+    Q('#txt-af-src').innerHTML = activationFunctions['tanh'];
+    Q('#txt-af-src').addEventListener('change', e => {
+        setShader(fragSrc.replace('#ACTIVATION#', e.target.value), gl.FRAGMENT_SHADER);
+        gl.linkProgram(program);
+        gl.useProgram(program);
+    });
+
+    Q('#sel-af').addEventListener('change', e => {
+        Q('#txt-af-src').innerHTML = activationFunctions[e.target.value];
+    });
+
+    setShader(vertSrc, gl.VERTEX_SHADER);
+    setShader(fragSrc.replace('#ACTIVATION#', activationFunctions.tanh), gl.FRAGMENT_SHADER);
     gl.linkProgram(program);
     gl.useProgram(program);
 

@@ -12,7 +12,7 @@ out vec4 outColor;
 
 uniform float u_kernel[9];
 
-float activation(float f){ return tanh(f); }
+#ACTIVATION#
 vec4 getCell(vec2 p){ return texture(uTex, p / rez); }
 
 vec3 hsv2rgb(vec3 c) {

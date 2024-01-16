@@ -1,0 +1,4 @@
+{
+    "tanh": "float activation(float f){\n  return tanh(f);\n}",
+    "binary": "float activation(float f){\n  return f < 0.0 ? -1.0 : 1.0;\n}"
+}
