@@ -4,7 +4,6 @@ precision highp float;
 
 uniform sampler2D uTex;
 
-uniform float time;
 uniform vec2 rez;
 uniform int renderMode;
 

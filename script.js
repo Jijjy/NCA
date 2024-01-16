@@ -91,32 +91,42 @@
     gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex1, 0);
 
-    var lTime = gl.getUniformLocation(program, 'time');
-    var lRez = gl.getUniformLocation(program, 'rez');
-    var lRenderMode = gl.getUniformLocation(program, 'renderMode');
-    var uTex = gl.getUniformLocation(program, 'uTex');
+    class Uniform {
+        constructor(name, setter) { this.name = name; this._set = setter; }
+        set(v) {
+            if (v || v === 0) this.value = v;
+            this._set(gl.getUniformLocation(program, this.name), this.value);
+        }
+    }
+
+    const setters = {
+        f: (l, v) => gl.uniform1f(l, v),
+        i: (l, v) => gl.uniform1i(l, v),
+        vec2: (l, v) => gl.uniform2f(l, ...v),
+    };
+
+    const uniforms = {
+        rez: new Uniform('rez', setters.vec2),
+        renderMode: new Uniform('renderMode', setters.i),
+        tex: new Uniform('uTex', setters.i),
+    };
 
     const kernelInputs = [...document.querySelectorAll('#kernel input')];
     let kernel = [];
     for (let i = 0; i < 9; i++) {
-        kernel.push({
-            L: gl.getUniformLocation(program, `u_kernel[${i}]`),
-            get value() { return parseFloat(kernelInputs[i].value); },
-            set value(v) { kernelInputs[i].value = v.toFixed(3); },
-            set() { gl.uniform1f(this.L, this.value); }
-        })
+        kernel.push(new Uniform(`u_kernel[${i}]`, setters.f))
     }
 
     function randomizeTexture() {
         var data = new Float32Array(width * height * 4);
         for (let i = 0; i < data.length; i++)
-            data[i] = 1 - 2 * Math.random();
+            data[i] = randn();
         gl.bindTexture(gl.TEXTURE_2D, tex1);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, width, height, 0, gl.RGBA, gl.FLOAT, data);
     }
 
     function randomizeKernel() {
-        kernel.forEach(k => k.value = randn());
+        kernel.forEach((k, i) => kernelInputs[i].value = randn().toFixed(3));
     }
 
     randomizeKernel();
@@ -126,22 +136,20 @@
     }, 5000);
 
     (function render() {
-        var time = performance.now() * 0.001;
-        gl.uniform1f(lTime, time);
-        gl.uniform2f(lRez, width, height);
-        gl.uniform1i(lRenderMode, 0);
-        kernel.forEach(k => k.set());
+        uniforms.rez.set([width, height]);
+        uniforms.renderMode.set(0);
+        kernel.forEach((k, i) => k.set(parseFloat(kernelInputs[i].value)));
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, tex1);
-        gl.uniform1i(uTex, 0);
+        uniforms.tex.set(0);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex2, 0);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
-        gl.uniform1i(lRenderMode, 1);
+        uniforms.renderMode.set(1);
         gl.bindTexture(gl.TEXTURE_2D, tex2);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
 
