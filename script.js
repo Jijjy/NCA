@@ -103,19 +103,17 @@
         f: (l, v) => gl.uniform1f(l, v),
         i: (l, v) => gl.uniform1i(l, v),
         vec2: (l, v) => gl.uniform2f(l, ...v),
+        mat3: (l, v) => gl.uniformMatrix3fv(l, false, v),
     };
 
     const uniforms = {
         rez: new Uniform('rez', setters.vec2),
         renderMode: new Uniform('renderMode', setters.i),
         tex: new Uniform('uTex', setters.i),
+        kernel: new Uniform('u_kernel', setters.mat3)
     };
 
     const kernelInputs = [...document.querySelectorAll('#kernel input')];
-    let kernel = [];
-    for (let i = 0; i < 9; i++) {
-        kernel.push(new Uniform(`u_kernel[${i}]`, setters.f))
-    }
 
     function randomizeTexture() {
         var data = new Float32Array(width * height * 4);
@@ -126,7 +124,7 @@
     }
 
     function randomizeKernel() {
-        kernel.forEach((k, i) => kernelInputs[i].value = randn().toFixed(3));
+        kernelInputs.forEach(el => el.value = randn().toFixed(3));
     }
 
     randomizeKernel();
@@ -138,7 +136,7 @@
     (function render() {
         uniforms.rez.set([width, height]);
         uniforms.renderMode.set(0);
-        kernel.forEach((k, i) => k.set(parseFloat(kernelInputs[i].value)));
+        uniforms.kernel.set(kernelInputs.map(el => parseFloat(el.value)));
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, tex1);
